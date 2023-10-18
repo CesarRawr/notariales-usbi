@@ -20,8 +20,11 @@ function formatXalapaIndexes() {
   const xalapaGeograficos = getIndexStrings(xalapaFiles, "placeAccessPoints");
   const xalapaOnomasticos = getIndexStrings(xalapaFiles, "nameAccessPoints");
 
-  
-  fs.writeFileSync("testOnomasticos.txt", JSON.stringify(xalapaOnomasticos, null, 2));
+  return {
+    tematicos: xalapaTematicos,
+    geograficos: xalapaGeograficos,
+    onomasticos: xalapaOnomasticos,
+  };
 }
 
 function formatOrizabaIndexes() {
@@ -29,10 +32,11 @@ function formatOrizabaIndexes() {
   const orizabaGeograficos = getIndexStrings(orizabaFiles, "placeAccessPoints");
   const orizabaOnomasticos = getIndexStrings(orizabaFiles, "nameAccessPoints");
 
-  
-  fs.writeFileSync("testOnomasticos.txt", JSON.stringify(orizabaOnomasticos, null, 2));
-  fs.writeFileSync("testGeograficos.txt", JSON.stringify(orizabaGeograficos, null, 2));
-  fs.writeFileSync("testTematicos.txt", JSON.stringify(orizabaTematicos, null, 2));
+  return {
+    tematicos: orizabaTematicos,
+    geograficos: orizabaGeograficos,
+    onomasticos: orizabaOnomasticos,
+  };
 }
 
 function formatCordobaIndexes() {
@@ -40,13 +44,55 @@ function formatCordobaIndexes() {
   const cordobaGeograficos = getIndexStrings(cordobaFiles, "placeAccessPoints");
   const cordobaOnomasticos = getIndexStrings(cordobaFiles, "nameAccessPoints");
 
-  
-  fs.writeFileSync("testOnomasticos.txt", JSON.stringify(cordobaOnomasticos, null, 2));
-  fs.writeFileSync("testGeograficos.txt", JSON.stringify(cordobaGeograficos, null, 2));
-  fs.writeFileSync("testTematicos.txt", JSON.stringify(cordobaTematicos, null, 2));
+  return {
+    tematicos: cordobaTematicos,
+    geograficos: cordobaGeograficos,
+    onomasticos: cordobaOnomasticos,
+  };
 }
 
-formatCordobaIndexes();
+function countProcotolIndexes() {
+  const xalapaIndexes = formatXalapaIndexes();
+  const orizabaIndexes = formatOrizabaIndexes();
+  const cordobaIndexes = formatCordobaIndexes();
+
+  const geograficos = removedDuplicatedStrings([
+    ...xalapaIndexes.geograficos,
+    ...orizabaIndexes.geograficos,
+    ...cordobaIndexes.geograficos,
+  ]);
+
+  const tematicos = removedDuplicatedStrings([
+    ...xalapaIndexes.tematicos,
+    ...orizabaIndexes.tematicos,
+    ...cordobaIndexes.tematicos,
+  ]);
+
+  const onomasticos = removedDuplicatedStrings([
+    ...xalapaIndexes.onomasticos,
+    ...orizabaIndexes.onomasticos,
+    ...cordobaIndexes.onomasticos,
+  ]);
+
+  const nearStrings = tematicos.map((str, index, arr) => {
+    const restOfStrings = arr.slice(index + 1, arr.length);
+    const matches = restOfStrings.filter((nextStr) => {
+      const matchMeter = distance(str, nextStr);
+      return matchMeter > 0 && matchMeter < 3;
+    });
+
+    return matches.length > 0
+      ? {
+          word: str,
+          matches,
+        }
+      : undefined;
+  }).filter(x => Boolean(x));
+
+  console.log(nearStrings);
+}
+
+countProcotolIndexes();
 
 // Misc
 function getIndexStrings(files, attName) {
@@ -58,7 +104,10 @@ function getIndexStrings(files, attName) {
     .flat()
     .filter((str) => Boolean(str.length));
 
-  const removedDuplicated = [...new Set(flatedTemaIndexes)];
-  removedDuplicated.sort();
+  const removedDuplicated = removedDuplicatedStrings(flatedTemaIndexes);
   return removedDuplicated;
+}
+
+function removedDuplicatedStrings(strArr) {
+  return [...new Set(strArr)].sort();
 }
