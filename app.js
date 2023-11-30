@@ -1,6 +1,6 @@
 // Formatear Orizaba
 import fs from "node:fs";
-
+.
 const orizaba = JSON.parse(
   fs.readFileSync("./data/orizaba/base.json", "utf8")
 );
