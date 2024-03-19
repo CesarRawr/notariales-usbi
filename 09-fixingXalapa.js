@@ -1,9 +1,11 @@
 import fs from "node:fs";
+import levenshtein from "fastest-levenshtein";
 
 const xalapaOldJson = JSON.parse(
 	fs.readFileSync(`./data/xalapa/finalX.fixed.json`, "utf8"),
 );
 
+// The real order of the protocols
 const xalapaFixJson = JSON.parse(
 	fs.readFileSync(`./data/xalapa/xalapa-fix.json`, "utf8"),
 );
@@ -26,9 +28,7 @@ const xalapaGrouped = removedWrongProtocols.reduce((acc, xalapaProtocol) => {
 	) {
 		return {
 			...acc,
-			[xalapaProtocol.legacyId]: [
-				xalapaProtocol,
-			],
+			[xalapaProtocol.legacyId]: [xalapaProtocol],
 		};
 	}
 
@@ -37,9 +37,9 @@ const xalapaGrouped = removedWrongProtocols.reduce((acc, xalapaProtocol) => {
 		...acc,
 		[xalapaProtocol.parentId]: [
 			...acc[xalapaProtocol.parentId],
-			xalapaProtocol
+			xalapaProtocol,
 		],
-	}
+	};
 }, {});
 
 // fixing xalapa protocols, replacing wrong data
@@ -56,25 +56,56 @@ const fixedProtocols = xalapaFixJson.map((fixMetaData) => {
 		eventEndDates: fixMetaData.fin,
 		eventDates: fixMetaData.fecha,
 		extentAndMedium,
-	}
+	};
 });
 
 // Adding fixed protocols to its respective father
 const groupedProtocolsMerged = {
 	...xalapaGrouped,
-	"9": [
-		...xalapaGrouped["9"],
-		...fixedProtocols,
-	]
+	9: [...xalapaGrouped["9"], ...fixedProtocols],
 };
 
-console.log(groupedProtocolsMerged["9"]);
+// Ordering fixed protocols by foja
+const sortedFixedProtocols1663 = groupedProtocolsMerged[9].sort(
+	function (actualProtocol, nextProtocol) {
+		return (
+			getLastFoja(actualProtocol.extentAndMedium) -
+			getLastFoja(nextProtocol.extentAndMedium)
+		);
+	},
+);
 
-// Misc
+const groupedProtocolsFixed = {
+	...xalapaGrouped,
+	9: [...sortedFixedProtocols1663],
+};
+
+save(groupedProtocolsFixed);
+
+//////////
+// Misc //
+//////////
+function save(toSave) {
+	const fixedXalapaJSON = JSON.stringify(toSave, null, 2);
+	fs.writeFileSync("./fixed.test.json", fixedXalapaJSON);
+}
+
+// get right foja from protocols
 function getFoja(fixMetaData) {
 	if (!fixMetaData.hasOwnProperty("folio2")) {
 		return `${fixMetaData.folio1}`;
 	}
 
 	return `${fixMetaData.folio1} - ${fixMetaData.folio2}`;
+}
+
+// Parse date from format dd/mm/yyyy to Date object
+function getLastFoja(foja) {
+	const fojas = foja.split(" - ").map(keepNumbers);
+	return fojas.length > 1 ? fojas[1] : fojas[0];
+}
+
+// Funcion usada para limpiar las fojas de las letras y simbolos. Pero manteniendo los guiones y numeros
+function keepNumbers(str) {
+	return Number(str.replace(/[a-zA-Z\.,_ ]/g, ""));
 }
